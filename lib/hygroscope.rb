@@ -3,7 +3,7 @@ require 'cfoo'
 require 'fileutils'
 
 module Hygroscope
-  def self.process(path)
+  def self.cfoo_process(path)
     files = Dir.glob(File.join(path, '*.{yml,yaml}'))
     cfoo = Cfoo::Factory.new(STDOUT, STDERR).cfoo
 

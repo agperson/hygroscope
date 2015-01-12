@@ -2,7 +2,7 @@ Gem::Specification.new do |s|
   s.name        = 'hygroscope'
   s.version     = '1.0.0'
   s.summary     = 'CloudFormation launcher'
-  s.description = 'Launch cfoo CloudFormation templates'
+  s.description = 'A tool for managing the launch of complex CloudFormation stacks'
   s.authors     = ['Daniel Silverman']
   s.email       = 'dsilverman@brightcove.com'
   s.homepage    = ''
@@ -12,6 +12,7 @@ Gem::Specification.new do |s|
   s.executables = s.files.grep(%r{^bin/}) { |f| File.basename(f) }
 
   s.add_dependency 'thor'
+  s.add_dependency 'cfoo'
   s.add_dependency 'aws-cli', '>= 2.0.0.pre'
 
   s.add_development_dependency 'bundler'

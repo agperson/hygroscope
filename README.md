@@ -1,13 +1,14 @@
 - - -
-> **hy·gro·scope**
-> _ˈhīɡrəˌskōp/_, noun
+
+> **hy·gro·scope**<br>
+> _ˈhīɡrəˌskōp/_, noun<br>
 > an instrument that gives an indication of the humidity of the air.
 
 - - -
 
 Hygroscope is a Thor-based command-line tool for managing the launch of complex CloudFormation stacks.
 
-(CloudFormation)[http://aws.amazon.com/cloudformation/] is a great way to manage infrastructure resources using code, but it has some aspects that make it a pain.
+[CloudFormation](http://aws.amazon.com/cloudformation/) is a great way to manage infrastructure resources using code, but it has some aspects that make it a pain.
 1. Templates must be written in JSON, which, in addition to being difficult for a human to read, does not support niceties such as inline comments and repeated blocks.
 2. Launching CloudFormation stacks requires knowledge of the various parameters that need to be provided, and it is difficult to repeatably launch a stack since parameters are not saved in any convenient way.
 3. There is no easy mechanism to send a payload of data to an instance during stack creation.

@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'hygroscope'
-  s.version     = '1.0.0'
+  s.version     = '0.0.1'
   s.summary     = 'CloudFormation launcher'
   s.description = 'A tool for managing the launch of complex CloudFormation stacks'
   s.authors     = ['Daniel Silverman']
@@ -17,5 +17,4 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'rake'
-  s.add_development_dependency 'geminabox'
 end

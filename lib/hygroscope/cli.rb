@@ -1,4 +1,5 @@
 require 'hygroscope'
+require 'yaml'
 
 module Hygroscope
   class Cli < Thor
@@ -9,7 +10,7 @@ module Hygroscope
     end
 
     no_commands do
-      def failure(message)
+      def fail(message)
         say_status('error', message, :red)
         abort
       end
@@ -22,9 +23,19 @@ module Hygroscope
         File.basename(template_path)
       end
 
+      def paramset(name)
+        files = Dir.glob(File.join(template_path, 'paramsets', options[:name] + '.{yml,yaml}'))
+        fail("Paramlist `#{options[:name]}' does not exist.") if files.empty?
+
+        content = YAML.load_file(files.first)
+        fail("No parameters for `#{template_name}' paramlist `#{options[:name]}'.") unless content
+
+        content
+      end
+
       def check_path()
         unless File.directory?(File.join(Dir.pwd, 'cfoo')) && File.directory?(File.join(Dir.pwd, 'paramsets'))
-          failure('Hygroscope must be run from a template directory.')
+          fail('Hygroscope must be run from a template directory.')
         end
       end
 
@@ -41,7 +52,7 @@ module Hygroscope
       end
     end
 
-    desc 'create', "Create a new stack.\nUse the name option to launch more than one stack from the same template.\nCommand prompts for parameters unless a paramset is specified."
+    desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified."
     method_option :name,
       aliases: '-n',
       default: File.basename(Dir.pwd),
@@ -62,7 +73,7 @@ module Hygroscope
       #ask("What is your favorite Neopolitan flavor?", :default => 'strawberry' )
     end
 
-    desc 'update', "Update a running stack.\nCommand prompts for parameters unless a paramset is specified."
+    desc 'update', "Update a running stack.\nCommand prompts for parameters unless a --paramset is specified."
     method_option :name,
       aliases: '-n',
       default: File.basename(Dir.pwd),
@@ -107,13 +118,27 @@ module Hygroscope
       check_path
     end
 
-    desc 'params', "List saved paramsets.\nIf name of a paramset is specified with '-n', shows all parameters in the set."
+    desc 'params', "List saved paramsets.\nIf --name is passed, shows all parameters in the named set."
     method_option :name,
       aliases: '-n',
       required: false,
       desc: 'Name of a paramset'
     def params()
-
+      if options[:name]
+        content = paramset(options[:name])
+        say "Parameters for `#{template_name}' paramset `#{options[:name]}':"
+        print_table content, indent: 2
+      else
+        files = Dir.glob(File.join(template_path, 'paramsets', '*.{yml,yaml}'))
+        if files.empty?
+          say "No saved paramsets for `#{template_name}'."
+        else
+          say "Saved paramsets for `#{template_name}':"
+          files.map do |f|
+            say "  " + File.basename(f, File.extname(f))
+          end
+        end
+      end
     end
   end
 end

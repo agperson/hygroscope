@@ -38,18 +38,6 @@ module Hygroscope
           fail('Hygroscope must be run from a template directory.')
         end
       end
-
-      def select(values, options=nil)
-        print_table values.map.with_index{ |a, i| [i + 1, *a]}
-
-        if !options.nil? && options[:default]
-          selection = ask('Selection:', default: options[:default]).to_i
-        else
-          selection = ask('Selection:').to_i
-        end
-
-        values[selection - 1]
-      end
     end
 
     desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified."
@@ -68,6 +56,12 @@ module Hygroscope
       desc: 'Still prompt for parameters even when using a paramset'
     def create()
       check_path
+      begin
+        t, resp = Hygroscope::Helpers.validate_template(File.join(Dir.pwd, 'cfoo'))
+      rescue
+        fail 'Template is not valid, run `validate\' command for more information.'
+      end
+
       #puts select(%w(first second third), default: 1)
       #ask("What is your favorite Neopolitan flavor?", :limited_to => %w(strawberry chocolate vanilla))
       #ask("What is your favorite Neopolitan flavor?", :default => 'strawberry' )
@@ -110,30 +104,22 @@ module Hygroscope
     desc 'generate', "Generate and display JSON output from cfoo template files.\nTo validate that the template is well-formed use the 'validate' command."
     def generate()
       check_path
-      puts Hygroscope.process(File.join(Dir.pwd, 'cfoo'))
+      puts Hygroscope::Helpers.process(File.join(Dir.pwd, 'cfoo'))
     end
 
     desc 'validate', "Generate JSON from cfoo template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
     def validate()
       check_path
-      template = Hygroscope.process(File.join(Dir.pwd, 'cfoo'))
-
-      # Parsing the template to JSON and then re-outputting it is a form of
-      # compression (removing all extra spaces) to keep within the 50KB limit
-      # for CloudFormation templates.
-      parsed = JSON.parse(template)
-
       begin
-        cf = Aws::CloudFormation::Client.new
-        cf.validate_template(
-          template_body: parsed.to_json
-        )
+        _t, _resp = Hygroscope::Helpers.validate_template(File.join(Dir.pwd, 'cfoo'))
       rescue Aws::CloudFormation::Errors::ValidationError => e
         say 'Validation error:', :red
         print_wrapped e.message, indent: 2
+        abort
       rescue => e
         say 'Unexpected error:', :red
         print_wrapped e.message, indent: 2
+        abort
       else
         say 'Template is valid!', :green
       end

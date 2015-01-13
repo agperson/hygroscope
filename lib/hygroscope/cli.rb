@@ -1,5 +1,5 @@
 require 'hygroscope'
-require 'yaml'
+require 'pp'
 
 module Hygroscope
   class Cli < Thor
@@ -110,12 +110,33 @@ module Hygroscope
     desc 'generate', "Generate and display JSON output from cfoo template files.\nTo validate that the template is well-formed use the 'validate' command."
     def generate()
       check_path
-      puts Hygroscope.cfoo_process(File.join(Dir.pwd, 'cfoo'))
+      puts Hygroscope.process(File.join(Dir.pwd, 'cfoo'))
     end
 
     desc 'validate', "Generate JSON from cfoo template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
     def validate()
       check_path
+      template = Hygroscope.process(File.join(Dir.pwd, 'cfoo'))
+
+      # Parsing the template to JSON and then re-outputting it is a form of
+      # compression (removing all extra spaces) to keep within the 50KB limit
+      # for CloudFormation templates.
+      parsed = JSON.parse(template)
+
+      begin
+        cf = Aws::CloudFormation::Client.new
+        cf.validate_template(
+          template_body: parsed.to_json
+        )
+      rescue Aws::CloudFormation::Errors::ValidationError => e
+        say 'Validation error:', :red
+        print_wrapped e.message, indent: 2
+      rescue => e
+        say 'Unexpected error:', :red
+        print_wrapped e.message, indent: 2
+      else
+        say 'Template is valid!', :green
+      end
     end
 
     desc 'params', "List saved paramsets.\nIf --name is passed, shows all parameters in the named set."
@@ -126,14 +147,14 @@ module Hygroscope
     def params()
       if options[:name]
         content = paramset(options[:name])
-        say "Parameters for `#{template_name}' paramset `#{options[:name]}':"
+        say "Parameters for `#{template_name}' paramset `#{options[:name]}':", :yellow
         print_table content, indent: 2
       else
         files = Dir.glob(File.join(template_path, 'paramsets', '*.{yml,yaml}'))
         if files.empty?
           say "No saved paramsets for `#{template_name}'."
         else
-          say "Saved paramsets for `#{template_name}':"
+          say "Saved paramsets for `#{template_name}':", :yellow
           files.map do |f|
             say "  " + File.basename(f, File.extname(f))
           end

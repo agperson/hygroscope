@@ -53,6 +53,14 @@ module Hygroscope
       end
     end
 
+    def delete_stack(stack)
+      begin
+        @client.delete_stack(stack_name: stack)
+      rescue => e
+        raise e
+      end
+    end
+
     def describe_stack(stack)
       begin
         resp = @client.describe_stacks(stack_name: stack)

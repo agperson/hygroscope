@@ -87,6 +87,7 @@ module Hygroscope
       end
 
       pp resp
+      status
 
       #puts select(%w(first second third), default: 1)
       #ask("What is your favorite Neopolitan flavor?", :limited_to => %w(strawberry chocolate vanilla))
@@ -109,6 +110,7 @@ module Hygroscope
       desc: 'Still prompt for parameters even when using a paramset'
     def update()
       check_path
+      status
     end
 
     desc 'delete', 'Delete a running stack after asking for confirmation.'
@@ -125,6 +127,9 @@ module Hygroscope
       check_path
       if options[:force] or yes?("Really delete stack #{options[:name]} [y/N]?")
         say("Deleting stack!")
+        cf = Hygroscope::CloudFormation.new
+        cf.delete_stack(options[:name])
+        status
       end
     end
 
@@ -138,16 +143,16 @@ module Hygroscope
       cf = Hygroscope::CloudFormation.new
 
       # Query and display the status of the stack and its resources. Refresh
-      # every 5 seconds until the user aborts or an error is encountered.
+      # every 10 seconds until the user aborts or an error is encountered.
       begin
         s = cf.describe_stack(options[:name])
 
         system "clear" or system "cls"
 
         header = {
-          'Name'    => s.stack_name,
-          'Created' => s.creation_time,
-          'Status'  => colorize_status(s.stack_status),
+          'Name:'    => s.stack_name,
+          'Created:' => s.creation_time,
+          'Status:'  => colorize_status(s.stack_status),
         }
 
         print_table header
@@ -172,10 +177,12 @@ module Hygroscope
           puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
           break
         elsif s.stack_status.downcase =~ /failed$/
+          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
           break
         else
           puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
-          countdown("Updating in", 5)
+          countdown("Updating in", 9)
+          puts
         end
       rescue Aws::CloudFormation::Errors::ValidationError
         fail("Stack not found")

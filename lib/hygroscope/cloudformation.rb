@@ -2,9 +2,13 @@ require 'hygroscope'
 require 'cfoo'
 
 module Hygroscope
-  class Helpers
+  class CloudFormation
+    def initialize
+      @client = Aws::CloudFormation::Client.new
+    end
+
     # Process a set of files with cfoo and return JSON
-    def self.process(path)
+    def process(path)
       out = StringIO.new
 
       files = Dir.glob(File.join(path, '*.{yml,yaml}'))
@@ -19,7 +23,7 @@ module Hygroscope
     end
 
     # Process a set of files with cfoo and write JSON to a temporary file
-    def self.process_to_file(path)
+    def process_to_file(path)
       file = Tempfile.new(['hygroscope-', '.json'])
       file.write(self.process(path))
       file.close
@@ -30,8 +34,8 @@ module Hygroscope
     end
 
     # Validate template with AWS and return result
-    def self.validate_template(path)
-      template = Hygroscope::Helpers.process(File.join(Dir.pwd, 'cfoo'))
+    def validate_template(path)
+      template = self.process(File.join(Dir.pwd, 'cfoo'))
 
       # Parsing the template to JSON and then re-outputting it is a form of
       # compression (removing all extra spaces) to keep within the 50KB limit
@@ -39,8 +43,7 @@ module Hygroscope
       parsed = JSON.parse(template)
 
       begin
-        cf = Aws::CloudFormation::Client.new
-        resp = cf.validate_template(
+        resp = @client.validate_template(
           template_body: parsed.to_json
         )
       rescue => e
@@ -50,17 +53,33 @@ module Hygroscope
       end
     end
 
-    # Selection list UI element with optional default selection
-    def self.select(values, options=nil)
-      print_table values.map.with_index{ |a, i| [i + 1, *a]}
-
-      if !options.nil? && options[:default]
-        selection = ask('Selection:', default: options[:default]).to_i
+    def describe_stack(stack)
+      begin
+        resp = @client.describe_stacks(stack_name: stack)
+      rescue => e
+        raise e
       else
-        selection = ask('Selection:').to_i
+        resp.stacks.first
       end
+    end
 
-      values[selection - 1]
+    def list_stack_resources(stack)
+      begin
+        resp = @client.describe_stack_resources(stack_name: stack)
+      rescue => e
+        raise e
+      else
+        resources = []
+        resp.stack_resources.each do |r|
+          resources << {
+            name: r.logical_resource_id,
+            type: r.resource_type,
+            status: r.resource_status
+          }
+        end
+
+        resources
+      end
     end
   end
 end

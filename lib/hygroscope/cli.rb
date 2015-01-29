@@ -1,5 +1,4 @@
 require 'hygroscope'
-require 'pp'
 
 module Hygroscope
   class Cli < Thor
@@ -15,25 +14,50 @@ module Hygroscope
         abort
       end
 
-      def template_path()
+      def colorize_status(status)
+        case status.downcase
+          when /failed$/
+            set_color(status, :red)
+          when /progress$/
+            set_color(status, :yellow)
+          when /complete$/
+            set_color(status, :green)
+        end
+      end
+
+      def word_wrap(string, length = 80, delim = $/)
+        string.scan(/.{#{length}}|.+/).map { |x| x.strip }.join(delim)
+      end
+
+      def countdown(text, time=5)
+        print "#{text}  "
+        time.downto(0) do |i|
+          $stdout.write("\b")
+          $stdout.write(i)
+          $stdout.flush
+          sleep 1
+        end
+      end
+
+      def template_path
         Dir.pwd
       end
 
-      def template_name()
+      def template_name
         File.basename(template_path)
       end
 
       def paramset(name)
         files = Dir.glob(File.join(template_path, 'paramsets', options[:name] + '.{yml,yaml}'))
-        fail("Paramlist `#{options[:name]}' does not exist.") if files.empty?
+        fail("Paramset `#{options[:name]}' does not exist.") if files.empty?
 
         content = YAML.load_file(files.first)
-        fail("No parameters for `#{template_name}' paramlist `#{options[:name]}'.") unless content
+        fail("No parameters for `#{template_name}' paramset `#{options[:name]}'.") unless content
 
         content
       end
 
-      def check_path()
+      def check_path
         unless File.directory?(File.join(Dir.pwd, 'cfoo')) && File.directory?(File.join(Dir.pwd, 'paramsets'))
           fail('Hygroscope must be run from a template directory.')
         end
@@ -57,10 +81,12 @@ module Hygroscope
     def create()
       check_path
       begin
-        t, resp = Hygroscope::Helpers.validate_template(File.join(Dir.pwd, 'cfoo'))
+        t, resp = Hygroscope::CloudFormation.validate_template(File.join(Dir.pwd, 'cfoo'))
       rescue
         fail 'Template is not valid, run `validate\' command for more information.'
       end
+
+      pp resp
 
       #puts select(%w(first second third), default: 1)
       #ask("What is your favorite Neopolitan flavor?", :limited_to => %w(strawberry chocolate vanilla))
@@ -97,21 +123,80 @@ module Hygroscope
       desc: 'Delete without asking for confirmation'
     def delete()
       check_path
-      puts yes?("Really delete stack #{options[:name]} [y/N]?")
+      if options[:force] or yes?("Really delete stack #{options[:name]} [y/N]?")
+        say("Deleting stack!")
+      end
     end
 
+    desc 'status', 'View status of stack create/update/delete action.\nUse the --name option to change which stack is reported upon.'
+    method_option :name,
+      aliases: '-n',
+      default: File.basename(Dir.pwd),
+      desc: 'Name of stack'
+    def status()
+      check_path
+      cf = Hygroscope::CloudFormation.new
+
+      # Query and display the status of the stack and its resources. Refresh
+      # every 5 seconds until the user aborts or an error is encountered.
+      begin
+        s = cf.describe_stack(options[:name])
+
+        system "clear" or system "cls"
+
+        header = {
+          'Name'    => s.stack_name,
+          'Created' => s.creation_time,
+          'Status'  => colorize_status(s.stack_status),
+        }
+
+        print_table header
+        puts
+
+        type_width   = terminal_width < 80 ? 30 : terminal_width - 50
+        output_width = terminal_width < 80 ? 54 : terminal_width - 31
+
+        puts set_color(sprintf(" %-28s %-*s %-18s ", "Resource", type_width, "Type", "Status"), :white, :on_blue)
+        resources = cf.list_stack_resources(options[:name])
+        resources.each do |r|
+          puts sprintf(" %-28s %-*s %-18s ", r[:name][0..26], type_width, r[:type][0..type_width], colorize_status(r[:status]))
+        end
+
+        if s.stack_status.downcase =~ /complete$/
+          puts
+          puts set_color(sprintf(" %-28s %-*s ", "Output", output_width, "Value"), :white, :on_yellow)
+          s.outputs.each do |o|
+            puts sprintf(" %-28s %-*s ", o.output_key, output_width, o.output_value)
+          end
+
+          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
+          break
+        elsif s.stack_status.downcase =~ /failed$/
+          break
+        else
+          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
+          countdown("Updating in", 5)
+        end
+      rescue Aws::CloudFormation::Errors::ValidationError
+        fail("Stack not found")
+      rescue Interrupt
+        abort
+      end while true
+    end
 
     desc 'generate', "Generate and display JSON output from cfoo template files.\nTo validate that the template is well-formed use the 'validate' command."
     def generate()
       check_path
-      puts Hygroscope::Helpers.process(File.join(Dir.pwd, 'cfoo'))
+      cf = Hygroscope::CloudFormation.new
+      puts cf.process(File.join(Dir.pwd, 'cfoo'))
     end
 
     desc 'validate', "Generate JSON from cfoo template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
     def validate()
       check_path
       begin
-        _t, _resp = Hygroscope::Helpers.validate_template(File.join(Dir.pwd, 'cfoo'))
+        cf = Hygroscope::CloudFormation.new
+        _t, _resp = cf.validate_template(File.join(Dir.pwd, 'cfoo'))
       rescue Aws::CloudFormation::Errors::ValidationError => e
         say 'Validation error:', :red
         print_wrapped e.message, indent: 2
@@ -144,6 +229,7 @@ module Hygroscope
           files.map do |f|
             say "  " + File.basename(f, File.extname(f))
           end
+          say "\nTo list parameters in a set, use the --name option."
         end
       end
     end

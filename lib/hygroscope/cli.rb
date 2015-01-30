@@ -80,14 +80,18 @@ module Hygroscope
       desc: 'Still prompt for parameters even when using a paramset'
     def create()
       check_path
-      begin
-        t, resp = Hygroscope::CloudFormation.validate_template(File.join(Dir.pwd, 'cfoo'))
-      rescue
-        fail 'Template is not valid, run `validate\' command for more information.'
+      validate
+
+      payload_path = File.join(Dir.pwd, 'payload')
+      if File.directory?(payload_path)
+        payload = Hygroscope::Payload.new(payload_path)
+        payload.prefix = options[:name]
+        url = payload.upload!
       end
 
-      pp resp
-      status
+      puts "url is: #{url}"
+      puts "presigned is: #{payload.generate_url}"
+      #status
 
       #puts select(%w(first second third), default: 1)
       #ask("What is your favorite Neopolitan flavor?", :limited_to => %w(strawberry chocolate vanilla))

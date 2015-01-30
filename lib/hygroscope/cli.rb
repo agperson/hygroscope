@@ -39,28 +39,22 @@ module Hygroscope
         end
       end
 
-      def template_path
+      def check_path
+        unless File.directory?(File.join(Dir.pwd, 'template')) && File.directory?(File.join(Dir.pwd, 'paramsets'))
+          fail('Hygroscope must be run from the top level of a hygroscopic directory.')
+        end
+      end
+
+      def hygro_path
         Dir.pwd
       end
 
-      def template_name
-        File.basename(template_path)
+      def hygro_name
+        File.basename(Dir.pwd)
       end
 
-      def paramset(name)
-        files = Dir.glob(File.join(template_path, 'paramsets', options[:name] + '.{yml,yaml}'))
-        fail("Paramset `#{options[:name]}' does not exist.") if files.empty?
-
-        content = YAML.load_file(files.first)
-        fail("No parameters for `#{template_name}' paramset `#{options[:name]}'.") unless content
-
-        content
-      end
-
-      def check_path
-        unless File.directory?(File.join(Dir.pwd, 'cfoo')) && File.directory?(File.join(Dir.pwd, 'paramsets'))
-          fail('Hygroscope must be run from a template directory.')
-        end
+      def template_path
+        File.join(hygro_path, 'template')
       end
     end
 
@@ -131,8 +125,8 @@ module Hygroscope
       check_path
       if options[:force] or yes?("Really delete stack #{options[:name]} [y/N]?")
         say("Deleting stack!")
-        cf = Hygroscope::CloudFormation.new
-        cf.delete_stack(options[:name])
+        stack = Hygroscope::Stack.new(options[:name])
+        stack.delete
         status
       end
     end
@@ -144,12 +138,12 @@ module Hygroscope
       desc: 'Name of stack'
     def status()
       check_path
-      cf = Hygroscope::CloudFormation.new
+      stack = Hygroscope::Stack.new(options[:name])
 
       # Query and display the status of the stack and its resources. Refresh
       # every 10 seconds until the user aborts or an error is encountered.
       begin
-        s = cf.describe_stack(options[:name])
+        s = stack.describe
 
         system "clear" or system "cls"
 
@@ -166,7 +160,7 @@ module Hygroscope
         output_width = terminal_width < 80 ? 54 : terminal_width - 31
 
         puts set_color(sprintf(" %-28s %-*s %-18s ", "Resource", type_width, "Type", "Status"), :white, :on_blue)
-        resources = cf.list_stack_resources(options[:name])
+        resources = stack.list_resources
         resources.each do |r|
           puts sprintf(" %-28s %-*s %-18s ", r[:name][0..26], type_width, r[:type][0..type_width], colorize_status(r[:status]))
         end
@@ -195,19 +189,29 @@ module Hygroscope
       end while true
     end
 
-    desc 'generate', "Generate and display JSON output from cfoo template files.\nTo validate that the template is well-formed use the 'validate' command."
+    desc 'generate', "Generate and display JSON output from template files.\nTo validate that the template is well-formed use the 'validate' command."
+    method_option :color,
+      aliases: '-c',
+      type: :boolean,
+      default: true,
+      desc: 'Colorize JSON output'
     def generate()
       check_path
-      cf = Hygroscope::CloudFormation.new
-      puts cf.process(File.join(Dir.pwd, 'cfoo'))
+      t = Hygroscope::Template.new(template_path)
+      if options[:color]
+        require 'json_color'
+        puts JsonColor.colorize(t.process)
+      else
+        puts t.process
+      end
     end
 
-    desc 'validate', "Generate JSON from cfoo template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
+    desc 'validate', "Generate JSON from template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
     def validate()
       check_path
       begin
-        cf = Hygroscope::CloudFormation.new
-        _t, _resp = cf.validate_template(File.join(Dir.pwd, 'cfoo'))
+        t = Hygroscope::Template.new(template_path)
+        _t, _resp = t.validate
       rescue Aws::CloudFormation::Errors::ValidationError => e
         say 'Validation error:', :red
         print_wrapped e.message, indent: 2
@@ -228,15 +232,21 @@ module Hygroscope
       desc: 'Name of a paramset'
     def params()
       if options[:name]
-        content = paramset(options[:name])
-        say "Parameters for `#{template_name}' paramset `#{options[:name]}':", :yellow
-        print_table content, indent: 2
+        begin
+          paramset = Hygroscope::ParamSet.new(options[:name])
+          p = paramset.parameters
+        rescue Hygroscope::ParamSetNotFoundError
+          fail("Paramset #{options[:name]} does not exist!")
+        end
+        say "Parameters for '#{hygro_name}' paramset '#{paramset.name}':", :yellow
+        print_table p, indent: 2
+        say "\nTo edit existing parameters, use the 'create' command with the --ask flag."
       else
-        files = Dir.glob(File.join(template_path, 'paramsets', '*.{yml,yaml}'))
+        files = Dir.glob(File.join(hygro_path, 'paramsets', '*.{yml,yaml}'))
         if files.empty?
-          say "No saved paramsets for `#{template_name}'."
+          say "No saved paramsets for '#{hygro_name}'.", :red
         else
-          say "Saved paramsets for `#{template_name}':", :yellow
+          say "Saved paramsets for '#{hygro_name}':", :yellow
           files.map do |f|
             say "  " + File.basename(f, File.extname(f))
           end

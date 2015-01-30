@@ -15,6 +15,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'cfoo'
   s.add_dependency 'aws-sdk', '>= 2.0.0.pre'
   s.add_dependency 'archive-zip'
+  s.add_dependency 'json_color'
 
   s.add_development_dependency 'bundler'
   s.add_development_dependency 'rake'

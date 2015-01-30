@@ -1,21 +1,29 @@
 require 'hygroscope'
 
 module Hygroscope
+  class ParamSetNotFoundError < StandardError
+  end
+
   class ParamSet
-    def initialize
+    attr_accessor :path
+    attr_reader :name
+
+    def initialize(name)
+      @name = name
+      @path = File.join(Dir.pwd, 'paramsets')
     end
 
-    # Selection list UI element with optional default selection
-    def select(values, options=nil)
-      print_table values.map.with_index{ |a, i| [i + 1, *a]}
-
-      if !options.nil? && options[:default]
-        selection = ask('Selection:', default: options[:default]).to_i
-      else
-        selection = ask('Selection:').to_i
+    def parameters
+      unless @parameters
+        files = Dir.glob(File.join(@path, @name + '.{yml,yaml}'))
+        if files.empty?
+          raise Hygroscope::ParamSetNotFoundError
+        else
+          @parameters = YAML.load_file(files.first)
+        end
       end
 
-      values[selection - 1]
+      @parameters
     end
   end
 end

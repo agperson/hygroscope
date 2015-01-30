@@ -211,17 +211,21 @@ module Hygroscope
       check_path
       begin
         t = Hygroscope::Template.new(template_path)
-        _t, _resp = t.validate
+        t.validate
       rescue Aws::CloudFormation::Errors::ValidationError => e
-        say 'Validation error:', :red
+        say_status('error', 'Validation error', :red)
         print_wrapped e.message, indent: 2
         abort
+      rescue Hygroscope::TemplateYamlParseError => e
+        say_status('error', 'YAML parsing error', :red)
+        puts e
+        abort
       rescue => e
-        say 'Unexpected error:', :red
+        say_status('error', 'Unexpected error', :red)
         print_wrapped e.message, indent: 2
         abort
       else
-        say 'Template is valid!', :green
+        say_status('ok', 'Template is valid', :green)
       end
     end
 

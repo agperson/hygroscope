@@ -2,6 +2,9 @@ require 'hygroscope'
 require 'cfoo'
 
 module Hygroscope
+  class TemplateYamlParseError < StandardError
+  end
+
   class Template
     attr_reader :path
 
@@ -12,16 +15,20 @@ module Hygroscope
     # Process a set of files with cfoo and return JSON
     def process
       out = StringIO.new
+      err = StringIO.new
 
       files = Dir.glob(File.join(@path, '*.{yml,yaml}'))
-      cfoo = Cfoo::Factory.new(out, STDERR).cfoo
+      cfoo = Cfoo::Factory.new(out, err).cfoo
 
-      # cfoo's file parser assumes relative paths
       Dir.chdir('/') do
         cfoo.process(*files)
       end
 
-      out.string
+      if err.string.empty?
+        out.string
+      else
+        raise TemplateYamlParseError, err.string
+      end
     end
 
     # Process a set of files with cfoo and write JSON to a temporary file
@@ -43,11 +50,9 @@ module Hygroscope
 
       begin
         stack = Hygroscope::Stack.new('template-validator')
-        resp = stack.client.validate_template(template_body: template.to_json)
+        stack.client.validate_template(template_body: template.to_json)
       rescue => e
         raise e
-      else
-        [template, resp]
       end
     end
   end

@@ -76,20 +76,79 @@ module Hygroscope
       check_path
       validate
 
+      # Generate the template
+      t = Hygroscope::Template.new(template_path)
+
+      # If the paramset exists load it, otherwise instantiate an empty one
+      p = Hygroscope::ParamSet.new(options[:paramset])
+
+      # TODO: Load and merge outputs from previous invocations -- how???
+
+      # User provided a paramset, so load it and determine which parameters
+      # are set and which need to be prompted.
+      if options[:paramset]
+        pkeys = p.paramset.keys
+        tkeys = t.parameters.keys
+
+        # Filter out any parameters that are not present in the template
+        filtered = pkeys - tkeys
+        pkeys = pkeys.select { |k,v| tkeys.include?(k) }
+        say_status('info', "Keys in paramset not requested by template: #{filtered.join(', ')}", :blue) unless filtered.empty?
+
+        # If ask option was passed, consider every parameter missing
+        missing = options[:ask] ? tkeys : tkeys - pkeys
+      else
+        # No paramset provided, so every parameter is missing!
+        missing = t.parameters.keys
+      end
+
+      # Prompt for each missing param and save it to the paramset
+      missing.each do |key|
+        say
+        type = t.parameters[key]['Type']
+        default = options[:ask] && pkeys.include?(key) ? p.get(key) : t.parameters[key]['Default'] || ''
+        description = t.parameters[key]['Description'] || false
+        values = t.parameters[key]['AllowedValues'] || false
+        noecho = t.parameters[key]['NoEcho'] || false
+
+        options = {}
+        options[:default] = default unless default.empty?
+        options[:limited_to] = values if values
+        options[:echo] = false if noecho
+
+        say("#{description} (#{type})") if description
+        answer = ''
+        until answer != ''
+          answer = ask(key, :cyan, options)
+        end
+        p.set(key, answer)
+      end
+
+      unless missing.empty?
+        if yes?("Save changes to paramset?")
+          unless options[:paramset]
+            p.name = ask("Paramset name", :cyan, default: options[:name])
+          end
+          p.save!
+        end
+      end
+
+      # Upload payload
+      # TODO: How does the payload get passed as a parameter?
       payload_path = File.join(Dir.pwd, 'payload')
       if File.directory?(payload_path)
         payload = Hygroscope::Payload.new(payload_path)
         payload.prefix = options[:name]
         url = payload.upload!
+        say_status('ok', 'Payload uploaded to:', :green)
+        say_status('', url)
       end
 
-      puts "url is: #{url}"
-      puts "presigned is: #{payload.generate_url}"
-      #status
+      # TODO: Create stack
+      #puts "presigned is: #{payload.generate_url}"
 
-      #puts select(%w(first second third), default: 1)
-      #ask("What is your favorite Neopolitan flavor?", :limited_to => %w(strawberry chocolate vanilla))
-      #ask("What is your favorite Neopolitan flavor?", :default => 'strawberry' )
+      # Display status of stack creation
+      status
     end
 
     desc 'update', "Update a running stack.\nCommand prompts for parameters unless a --paramset is specified."
@@ -229,21 +288,20 @@ module Hygroscope
       end
     end
 
-    desc 'params', "List saved paramsets.\nIf --name is passed, shows all parameters in the named set."
+    desc 'paramset', "List saved paramsets.\nIf --name is passed, shows all parameters in the named set."
     method_option :name,
       aliases: '-n',
       required: false,
       desc: 'Name of a paramset'
-    def params()
+    def paramset()
       if options[:name]
         begin
-          paramset = Hygroscope::ParamSet.new(options[:name])
-          p = paramset.parameters
+          p = Hygroscope::ParamSet.new(options[:name])
         rescue Hygroscope::ParamSetNotFoundError
           fail("Paramset #{options[:name]} does not exist!")
         end
-        say "Parameters for '#{hygro_name}' paramset '#{paramset.name}':", :yellow
-        print_table p, indent: 2
+        say "Parameters for '#{hygro_name}' paramset '#{p.name}':", :yellow
+        print_table p.paramset, indent: 2
         say "\nTo edit existing parameters, use the 'create' command with the --ask flag."
       else
         files = Dir.glob(File.join(hygro_path, 'paramsets', '*.{yml,yaml}'))

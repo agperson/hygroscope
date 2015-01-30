@@ -14,6 +14,8 @@ module Hygroscope
 
     # Process a set of files with cfoo and return JSON
     def process
+      return @template if @template
+
       out = StringIO.new
       err = StringIO.new
 
@@ -25,16 +27,22 @@ module Hygroscope
       end
 
       if err.string.empty?
-        out.string
+        @template = out.string
+        @template
       else
         raise TemplateYamlParseError, err.string
       end
     end
 
+    def parameters
+      template = JSON.parse(self.process)
+      template['Parameters'] || []
+    end
+
     # Process a set of files with cfoo and write JSON to a temporary file
     def process_to_file
       file = Tempfile.new(['hygroscope-', '.json'])
-      file.write(self.process(@path))
+      file.write(self.process)
       file.close
 
       at_exit { file.unlink }

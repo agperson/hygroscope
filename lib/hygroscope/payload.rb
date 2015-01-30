@@ -28,13 +28,11 @@ module Hygroscope
     end
 
     def create_bucket
-      puts "Creating bucket: #{@bucket}"
       # Returns success if bucket already exists
       @client.create_bucket(bucket: @bucket, acl: "private")
     end
 
     def prepare
-      puts "Archiving payload: #{@name}"
       archive_path = File.join(Dir.tmpdir, @name)
       Archive::Zip.archive(archive_path, "#{@path}/.")
 
@@ -43,7 +41,6 @@ module Hygroscope
     end
 
     def send
-      puts "Sending object to S3: #{key}"
       @client.put_object(
         bucket: @bucket,
         key: key,

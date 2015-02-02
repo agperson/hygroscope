@@ -22,4 +22,4 @@ Hygroscope aims to solve each of these specific problems in an opinionated way:
 3. A payload directory, if present, will be packaged and uploaded to S3. Hygroscope will generate and pass to CF a signed time-limited URL for accessing and downloading the payload, or the CloudFormation template can manage an instance profile granting indefinite access to the payload.
 4. If an existing stack is specified, its outputs will be fetched and passed through as input parameters when launching a new stack.
 
-Hygroscope is currently under development but mostly functional. Run `hygroscope help` to view inline command documentation and options.  See [template structure](https://github.com/agperson/wiki/Structure-of-a-Hygroscopic-Template) for information about the format of hygroscopic templates.
+Hygroscope is currently under development but mostly functional. Run `hygroscope help` to view inline command documentation and options.  See [template structure](https://github.com/agperson/hygroscope/wiki/Structure-of-a-Hygroscopic-Template) for information about the format of hygroscopic templates.

@@ -29,7 +29,7 @@ module Hygroscope
 
     def create_bucket
       # Returns success if bucket already exists
-      @client.create_bucket(bucket: @bucket, acl: "private")
+      @client.create_bucket(bucket: @bucket, acl: 'private')
     end
 
     def prepare
@@ -56,7 +56,7 @@ module Hygroscope
       "s3://#{@bucket}/#{key}"
     end
 
-    def generate_url(timeout=900)
+    def generate_url(_timeout = 900)
       signer = Aws::S3::Presigner.new(client: @client)
       signer.presigned_url(:get_object, bucket: @bucket, key: key)
     end

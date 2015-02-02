@@ -6,10 +6,10 @@ module Hygroscope
 
   class ParamSet
     attr_accessor :name, :path
-    attr_reader :paramset
+    attr_reader :parameters
 
-    def initialize(name=nil)
-      @paramset = Hash.new
+    def initialize(name = nil)
+      @parameters = {}
       @path = File.join(Dir.pwd, 'paramsets')
 
       if name
@@ -21,10 +21,10 @@ module Hygroscope
     def load!
       files = Dir.glob(File.join(@path, @name + '.{yml,yaml}'))
       if files.empty?
-        raise Hygroscope::ParamSetNotFoundError
+        fail Hygroscope::ParamSetNotFoundError
       else
         @file = files.first
-        @paramset = YAML.load_file(@file)
+        @parameters = YAML.load_file(@file)
       end
     end
 
@@ -32,16 +32,16 @@ module Hygroscope
       # If this is a new paramset, construct a filename
       savefile = @file || File.join(@path, @name + '.yaml')
       File.open(savefile, 'w') do |f|
-        YAML.dump(@paramset, f)
+        YAML.dump(@parameters, f)
       end
     end
 
     def get(key)
-      @paramset[key]
+      @parameters[key]
     end
 
     def set(key, value)
-      @paramset[key] = value
+      @parameters[key] = value
     end
   end
 end

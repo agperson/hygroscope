@@ -30,19 +30,23 @@ module Hygroscope
         @template = out.string
         @template
       else
-        raise TemplateYamlParseError, err.string
+        fail TemplateYamlParseError, err.string
       end
     end
 
+    def compress
+      JSON.parse(process).to_json
+    end
+
     def parameters
-      template = JSON.parse(self.process)
+      template = JSON.parse(process)
       template['Parameters'] || []
     end
 
     # Process a set of files with cfoo and write JSON to a temporary file
     def process_to_file
       file = Tempfile.new(['hygroscope-', '.json'])
-      file.write(self.process)
+      file.write(process)
       file.close
 
       at_exit { file.unlink }
@@ -54,11 +58,11 @@ module Hygroscope
       # Parsing the template to JSON and then re-outputting it is a form of
       # compression (removing all extra spaces) to keep within the 50KB limit
       # for CloudFormation templates.
-      template = JSON.parse(self.process)
+      template = self.compress
 
       begin
         stack = Hygroscope::Stack.new('template-validator')
-        stack.client.validate_template(template_body: template.to_json)
+        stack.client.validate_template(template_body: template)
       rescue => e
         raise e
       end

@@ -26,12 +26,13 @@ module Hygroscope
         cfoo.process(*files)
       end
 
-      if err.string.empty?
-        @template = out.string
-        @template
-      else
-        fail TemplateYamlParseError, err.string
-      end
+      fail(TemplateYamlParseError, err.string) unless err.string.empty?
+
+      # Substitute
+      # APP_CONFIG = YAML.load(ERB.new(File.read("#{Rails.root}/config/app_config.yml")).result)[Rails.env]
+      #
+      @template = out.string
+      @template
     end
 
     def compress
@@ -58,7 +59,7 @@ module Hygroscope
       # Parsing the template to JSON and then re-outputting it is a form of
       # compression (removing all extra spaces) to keep within the 50KB limit
       # for CloudFormation templates.
-      template = self.compress
+      template = compress
 
       begin
         stack = Hygroscope::Stack.new('template-validator')

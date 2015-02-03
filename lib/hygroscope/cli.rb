@@ -99,7 +99,7 @@ module Hygroscope
         no_echo = t.parameters[key]['NoEcho'] || false
 
         ask_opts = {}
-        ask_opts[:default] = default unless default.empty?
+        ask_opts[:default] = default unless default.to_s.empty?
         ask_opts[:limited_to] = values if values
         ask_opts[:echo] = false if no_echo
 

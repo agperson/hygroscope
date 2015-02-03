@@ -22,7 +22,7 @@ module Hygroscope
       @parameters.each do |k, v|
         stack_parameters << {
           parameter_key: k,
-          parameter_value: v
+          parameter_value: v.to_s
         }
       end
 
@@ -30,7 +30,7 @@ module Hygroscope
       @tags.each do |k, v|
         stack_tags << {
           key: k,
-          value: v
+          value: v.to_s
         }
       end
 
@@ -59,7 +59,7 @@ module Hygroscope
       @parameters.each do |k, v|
         stack_parameters << {
           parameter_key: k,
-          parameter_value: v
+          parameter_value: v.to_s
         }
       end
 

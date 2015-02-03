@@ -66,8 +66,6 @@ module Hygroscope
       # If the paramset exists load it, otherwise instantiate an empty one
       p = Hygroscope::ParamSet.new(options[:paramset])
 
-      # TODO: Load and merge outputs from previous invocations -- how???
-
       # User provided a paramset, so load it and determine which parameters
       # are set and which need to be prompted.
       if options[:paramset]
@@ -86,12 +84,24 @@ module Hygroscope
         missing = t.parameters.keys
       end
 
+      # If an existing stack was specified, load its outputs
+      if options[:existing]
+        e = Hygroscope::Stack.new(options[:existing])
+
+        # Fill any template paramater that matches an output of existing stack,
+        # overriding parameters in the paramset. User can still change these if
+        # they were missing from paramset or --ask option is passed.
+        e.outputs.each do |o|
+          p.set(o.output_key, o.output_value) if tkeys.include?(o.output_key)
+        end
+      end
+
       # Prompt for each missing param and save it to the paramset
       missing.each do |key|
         # Do not prompt for keys prefixed with "Hygroscope"
         next if key =~ /^Hygroscope/
 
-        say()
+        say
         type = t.parameters[key]['Type']
         default = options[:ask] && pkeys.include?(key) ? p.get(key) : t.parameters[key]['Default'] || ''
         description = t.parameters[key]['Description'] || false
@@ -135,7 +145,7 @@ module Hygroscope
       [t, p]
     end
 
-    desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified."
+    desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified.\nUse --existing to set parameters from an existing stack's outputs."
     method_option :name,
                   aliases: '-n',
                   default: File.basename(Dir.pwd),
@@ -144,6 +154,10 @@ module Hygroscope
                   aliases: '-p',
                   required: false,
                   desc: 'Name of saved paramset to use (optional)'
+    method_option :existing,
+                  aliases: '-e',
+                  required: false,
+                  desc: 'Name of an existing stack from which to retrieve outputs as parameters (optional)'
     method_option :ask,
                   aliases: '-a',
                   type: :boolean,
@@ -159,6 +173,7 @@ module Hygroscope
       s.template = template.compress
       s.tags['X-Hygroscope-Template'] = File.basename(Dir.pwd)
       s.capabilities = ['CAPABILITY_IAM']
+
       s.create!
 
       status

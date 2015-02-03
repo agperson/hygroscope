@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'hygroscope'
-  s.version     = '1.0.2'
+  s.version     = '1.1.0'
   s.summary     = 'CloudFormation launcher'
   s.description = 'A tool for managing the launch of complex CloudFormation stacks'
   s.authors     = ['Daniel Silverman']

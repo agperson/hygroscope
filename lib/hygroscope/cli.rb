@@ -87,12 +87,13 @@ module Hygroscope
       # If an existing stack was specified, load its outputs
       if options[:existing]
         e = Hygroscope::Stack.new(options[:existing])
+        say_status('info', "Populating parameters from #{options[:existing]} stack", :blue)
 
         # Fill any template paramater that matches an output of existing stack,
         # overriding parameters in the paramset. User can still change these if
         # they were missing from paramset or --ask option is passed.
-        e.outputs.each do |o|
-          p.set(o.output_key, o.output_value) if tkeys.include?(o.output_key)
+        e.describe.outputs.each do |o|
+          p.set(o.output_key, o.output_value) if t.parameters.keys.include?(o.output_key)
         end
       end
 
@@ -101,26 +102,37 @@ module Hygroscope
         # Do not prompt for keys prefixed with "Hygroscope"
         next if key =~ /^Hygroscope/
 
-        say
         type = t.parameters[key]['Type']
-        default = options[:ask] && pkeys.include?(key) ? p.get(key) : t.parameters[key]['Default'] || ''
+        default = p.get(key) ? p.get(key) : t.parameters[key]['Default'] || ''
         description = t.parameters[key]['Description'] || false
         values = t.parameters[key]['AllowedValues'] || false
         no_echo = t.parameters[key]['NoEcho'] || false
 
+        # Thor conveniently provides some nice logic for formatting,
+        # allowing defaults, and validating user input
         ask_opts = {}
         ask_opts[:default] = default unless default.to_s.empty?
         ask_opts[:limited_to] = values if values
         ask_opts[:echo] = false if no_echo
 
+        puts
         say("#{description} (#{type})") if description
-        answer = ''
+        # Make sure user enters a value
         # TODO: Better input validation
+        answer = ''
         answer = ask(key, :cyan, ask_opts) until answer != ''
+
+        # Save answer to paramset object
         p.set(key, answer)
+
+        # Add a line break
+        say if no_echo
       end
 
-      unless missing.empty?
+      # Offer to save paramset if it was modified
+      # Filter out keys beginning with "Hygroscope" since they are not visible
+      # to the user and may be modified on each invocation.
+      unless missing.reject {|k| k =~ /^Hygroscope/}.empty?
         if yes?('Save changes to paramset?')
           unless options[:paramset]
             p.name = ask('Paramset name', :cyan, default: options[:name])
@@ -166,6 +178,8 @@ module Hygroscope
     def create
       check_path
       validate
+
+      # Prepare task takes care of shared logic between "create" and "update"
       template, paramset = prepare
 
       s = Hygroscope::Stack.new(options[:name])
@@ -199,6 +213,8 @@ module Hygroscope
       # whether to re-upload the payload, etc.)
       check_path
       validate
+
+      # Prepare task takes care of shared logic between "create" and "update"
       template, paramset = prepare
 
       s = Hygroscope::Stack.new(options[:name])
@@ -255,9 +271,12 @@ module Hygroscope
         print_table header
         puts
 
+        # Fancy acrobatics to fit output to terminal width. If the terminal
+        # window is too small, fallback to something appropriate for ~80 chars
         type_width   = terminal_width < 80 ? 30 : terminal_width - 50
         output_width = terminal_width < 80 ? 54 : terminal_width - 31
 
+        # Header row
         puts set_color(sprintf(' %-28s %-*s %-18s ', 'Resource', type_width, 'Type', 'Status'), :white, :on_blue)
         resources = stack.list_resources
         resources.each do |r|
@@ -265,6 +284,7 @@ module Hygroscope
         end
 
         if s.stack_status.downcase =~ /complete$/
+          # If the stack is complete display any available outputs and stop refreshing
           puts
           puts set_color(sprintf(' %-28s %-*s ', 'Output', output_width, 'Value'), :white, :on_yellow)
           s.outputs.each do |o|
@@ -274,6 +294,7 @@ module Hygroscope
           puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
           break
         elsif s.stack_status.downcase =~ /failed$/
+          # If the stack failed to create, stop refreshing
           puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
           break
         else

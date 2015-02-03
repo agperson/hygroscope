@@ -72,7 +72,7 @@ module Hygroscope
       stack_opts['capabilities'] = @capabilities unless @capabilities.empty?
 
       begin
-        stack_id = @client.create_stack(stack_opts)
+        stack_id = @client.update_stack(stack_opts)
       rescue => e
         raise e
       end

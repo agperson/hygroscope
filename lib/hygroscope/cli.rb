@@ -221,6 +221,7 @@ module Hygroscope
       s.parameters = paramset.parameters
       s.template = template.compress
       s.capabilities = ['CAPABILITY_IAM']
+      s.timeout = 30
       s.update!
 
       status

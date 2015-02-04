@@ -25,10 +25,6 @@ module Hygroscope
         end
       end
 
-      def word_wrap(string, length = 80, delim = $INPUT_RECORD_SEPARATOR)
-        string.scan(/.{#{length}}|.+/).map(&:strip).join(delim)
-      end
-
       def countdown(text, time = 5)
         print "#{text}  "
         time.downto(0) do |i|
@@ -66,40 +62,43 @@ module Hygroscope
       # If the paramset exists load it, otherwise instantiate an empty one
       p = Hygroscope::ParamSet.new(options[:paramset])
 
-      # User provided a paramset, so load it and determine which parameters
-      # are set and which need to be prompted.
       if options[:paramset]
-        pkeys = p.parameters.keys
-        tkeys = t.parameters.keys
+        # User provided a paramset, so load it and determine which parameters
+        # are set and which need to be prompted.
+        paramset_keys = p.parameters.keys
+        template_keys = t.parameters.keys
 
-        # Filter out any parameters that are not present in the template
-        filtered = pkeys - tkeys
-        pkeys = pkeys.select { |k, _v| tkeys.include?(k) }
-        say_status('info', "Keys in paramset not requested by template: #{filtered.join(', ')}", :blue) unless filtered.empty?
+        # Reject any keys in paramset that are not requested by template
+        rejected_keys = paramset_keys - template_keys
+        say_status('info', "Keys in paramset not requested by template: #{rejected_keys.join(', ')}", :blue) unless rejected_keys.empty?
 
-        # If ask option was passed, consider every parameter missing
-        missing = options[:ask] ? tkeys : tkeys - pkeys
+        # Prompt for any key that is missing. If "ask" option was passed,
+        # prompt for every key.
+        missing = options[:ask] ? template_keys : template_keys - paramset_keys
       else
         # No paramset provided, so every parameter is missing!
         missing = t.parameters.keys
       end
 
-      # If an existing stack was specified, load its outputs
       if options[:existing]
+        # User specified an existing stack from which to pull outputs and
+        # translate into parameters. Load the existing stack.
         e = Hygroscope::Stack.new(options[:existing])
         say_status('info', "Populating parameters from #{options[:existing]} stack", :blue)
 
-        # Fill any template paramater that matches an output of existing stack,
-        # overriding parameters in the paramset. User can still change these if
-        # they were missing from paramset or --ask option is passed.
+        # Fill any template parameter that matches an output from the existing
+        # stack, overwriting values from the paramset object. The user will
+        # be prompted to change these if they were not in the paramset or the
+        # --ask option was passed.
         e.describe.outputs.each do |o|
           p.set(o.output_key, o.output_value) if t.parameters.keys.include?(o.output_key)
         end
       end
 
-      # Prompt for each missing param and save it to the paramset
+      # Prompt for each missing parameter and save it in the paramset object
       missing.each do |key|
-        # Do not prompt for keys prefixed with "Hygroscope"
+        # Do not prompt for keys prefixed with the "Hygroscope" reserved word.
+        # These parameters are populated internally without user input.
         next if key =~ /^Hygroscope/
 
         type = t.parameters[key]['Type']
@@ -132,7 +131,7 @@ module Hygroscope
       # Offer to save paramset if it was modified
       # Filter out keys beginning with "Hygroscope" since they are not visible
       # to the user and may be modified on each invocation.
-      unless missing.reject {|k| k =~ /^Hygroscope/}.empty?
+      unless missing.reject { |k| k =~ /^Hygroscope/ }.empty?
         if yes?('Save changes to paramset?')
           unless options[:paramset]
             p.name = ask('Paramset name', :cyan, default: options[:name])
@@ -153,6 +152,15 @@ module Hygroscope
         say_status('ok', 'Payload uploaded to:', :green)
         say_status('', "s3://#{payload.bucket}/#{payload.key}")
       end
+
+      # Set some additional parameters, if present
+      # HygroscopeAccountAzList
+      # HygroscopeAccountAzCount
+      #if missing.include?('HygroscopeAccountAzList') ||
+      #   misisng.include?('HygroscopeAccountAzCount')
+      #  p.set('HygroscopeAccountAzList', azlist) if missing.include?('HygroscopeAccountAzList')
+      #  p.set('HygroscopeAccountAzCount', azlist) if missing.include?('HygroscopeAccountAzCount')
+      #end
 
       [t, p]
     end

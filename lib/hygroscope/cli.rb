@@ -146,12 +146,12 @@ module Hygroscope
       if File.directory?(payload_path)
         payload = Hygroscope::Payload.new(payload_path)
         payload.prefix = options[:name]
-        url = payload.upload!
-        signed_url = payload.generate_url
-        p.set('HygroscopePayload', url) if missing.include?('HygroscopePayload')
-        p.set('HygroscopePayloadSignedUrl', signed_url) if missing.include?('HygroscopePayloadSignedUrl')
+        payload.upload!
+        p.set('HygroscopePayloadBucket', payload.bucket) if missing.include?('HygroscopePayloadBucket')
+        p.set('HygroscopePayloadKey', payload.key) if missing.include?('HygroscopePayloadKey')
+        p.set('HygroscopePayloadSignedUrl', payload.generate_url) if missing.include?('HygroscopePayloadSignedUrl')
         say_status('ok', 'Payload uploaded to:', :green)
-        say_status('', url)
+        say_status('', "s3://#{payload.bucket}/#{payload.key}")
       end
 
       [t, p]
@@ -221,7 +221,7 @@ module Hygroscope
       s.parameters = paramset.parameters
       s.template = template.compress
       s.capabilities = ['CAPABILITY_IAM']
-      s.timeout = 30
+      s.timeout = 60
       s.update!
 
       status

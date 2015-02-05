@@ -132,6 +132,7 @@ module Hygroscope
       # Filter out keys beginning with "Hygroscope" since they are not visible
       # to the user and may be modified on each invocation.
       unless missing.reject { |k| k =~ /^Hygroscope/ }.empty?
+        puts
         if yes?('Save changes to paramset?')
           unless options[:paramset]
             p.name = ask('Paramset name', :cyan, default: options[:name])

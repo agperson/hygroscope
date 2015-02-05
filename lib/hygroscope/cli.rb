@@ -284,8 +284,9 @@ module Hygroscope
 
         # Fancy acrobatics to fit output to terminal width. If the terminal
         # window is too small, fallback to something appropriate for ~80 chars
-        type_width   = terminal_width < 80 ? 30 : terminal_width - 50
-        output_width = terminal_width < 80 ? 54 : terminal_width - 31
+        term_width = %x(stty size 2>/dev/null).split[1].to_i || %x(tput cols 2>/dev/null).to_i
+        type_width   = term_width < 80 ? 30 : term_width - 50
+        output_width = term_width < 80 ? 54 : term_width - 31
 
         # Header row
         puts set_color(sprintf(' %-28s %-*s %-18s ', 'Resource', type_width, 'Type', 'Status'), :white, :on_blue)

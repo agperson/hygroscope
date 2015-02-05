@@ -93,7 +93,7 @@ module Hygroscope
         e.describe.outputs.each do |o|
           p.set(o.output_key, o.output_value) if t.parameters.keys.include?(o.output_key)
         end
-      end
+      end if options[:existing].is_a?(Array)
 
       # Prompt for each missing parameter and save it in the paramset object
       missing.each do |key|

@@ -1,7 +1,11 @@
+## 1.1.2 (2015-02-04)
+
+- Allow multiple existing stacks for parameter passthrough.
+
 ## 1.1.1 (2015-02-04)
 
-- Improved Payload parameters for more flexibility
-- Fixed broken update action
+- Improved payload parameters for more flexibility.
+- Fixed broken update action.
 
 ## 1.1.0 (2015-02-03)
 

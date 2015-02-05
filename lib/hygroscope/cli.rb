@@ -80,11 +80,11 @@ module Hygroscope
         missing = t.parameters.keys
       end
 
-      if options[:existing]
+      options[:existing].each do |existing|
         # User specified an existing stack from which to pull outputs and
         # translate into parameters. Load the existing stack.
-        e = Hygroscope::Stack.new(options[:existing])
-        say_status('info', "Populating parameters from #{options[:existing]} stack", :blue)
+        e = Hygroscope::Stack.new(existing)
+        say_status('info', "Populating parameters from #{existing} stack", :blue)
 
         # Fill any template parameter that matches an output from the existing
         # stack, overwriting values from the paramset object. The user will
@@ -176,8 +176,9 @@ module Hygroscope
                   desc: 'Name of saved paramset to use (optional)'
     method_option :existing,
                   aliases: '-e',
+                  type: :array,
                   required: false,
-                  desc: 'Name of an existing stack from which to retrieve outputs as parameters (optional)'
+                  desc: 'Name of one or more existing stacks from which to retrieve outputs as parameters (optional)'
     method_option :ask,
                   aliases: '-a',
                   type: :boolean,

@@ -56,7 +56,7 @@ module Hygroscope
       "s3://#{@bucket}/#{key}"
     end
 
-    def generate_url(_timeout = 900)
+    def generate_url(_timeout = 3600)
       signer = Aws::S3::Presigner.new(client: @client)
       signer.presigned_url(:get_object, bucket: @bucket, key: key)
     end

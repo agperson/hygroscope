@@ -1,3 +1,6 @@
+[![Gem Version](https://badge.fury.io/rb/hygroscope.svg)](http://badge.fury.io/rb/hygroscope)
+[![Code Climate](https://codeclimate.com/github/agperson/hygroscope/badges/gpa.svg)](https://codeclimate.com/github/agperson/hygroscope)
+
 - - -
 
 > **hy·gro·scope**<br>

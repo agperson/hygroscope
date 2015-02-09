@@ -52,6 +52,30 @@ module Hygroscope
       def template_path
         File.join(hygro_path, 'template')
       end
+
+      def say_paramset(name)
+        begin
+          p = Hygroscope::ParamSet.new(name)
+        rescue Hygroscope::ParamSetNotFoundError
+          say_fail("Paramset #{name} does not exist!")
+        end
+
+        say "Parameters for '#{hygro_name}' paramset '#{p.name}':", :yellow
+        print_table p.parameters, indent: 2
+        say "\nTo edit existing parameters, use the 'create' command with the --ask flag."
+      end
+
+      def say_paramset_list
+        files = Dir.glob(File.join(hygro_path, 'paramsets', '*.{yml,yaml}'))
+
+        say_fail("No saved paramsets for #{hygro_name}.") if files.empty?
+
+        say "Saved paramsets for '#{hygro_name}':", :yellow
+        files.map do |f|
+          say '  ' + File.basename(f, File.extname(f))
+        end
+        say "\nTo list parameters in a set, use the --name option."
+      end
     end
 
     desc 'prepare', 'Prepare to create or update a stack by generating the template, assembling parameters, and managing payload upload', hide: true
@@ -154,22 +178,13 @@ module Hygroscope
         say_status('', "s3://#{payload.bucket}/#{payload.key}")
       end
 
-      # Set some additional parameters, if present
-      # HygroscopeAccountAzList
-      # HygroscopeAccountAzCount
-      #if missing.include?('HygroscopeAccountAzList') ||
-      #   misisng.include?('HygroscopeAccountAzCount')
-      #  p.set('HygroscopeAccountAzList', azlist) if missing.include?('HygroscopeAccountAzList')
-      #  p.set('HygroscopeAccountAzCount', azlist) if missing.include?('HygroscopeAccountAzCount')
-      #end
-
       [t, p]
     end
 
     desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified.\nUse --existing to set parameters from an existing stack's outputs."
     method_option :name,
                   aliases: '-n',
-                  default: File.basename(Dir.pwd),
+                  default: hygro_name,
                   desc: 'Name of stack'
     method_option :paramset,
                   aliases: '-p',
@@ -195,7 +210,7 @@ module Hygroscope
       s = Hygroscope::Stack.new(options[:name])
       s.parameters = paramset.parameters
       s.template = template.compress
-      s.tags['X-Hygroscope-Template'] = File.basename(Dir.pwd)
+      s.tags['X-Hygroscope-Template'] = hygro_name
       s.capabilities = ['CAPABILITY_IAM']
 
       s.create!
@@ -249,12 +264,13 @@ module Hygroscope
                   desc: 'Delete without asking for confirmation'
     def delete
       check_path
-      if options[:force] || yes?("Really delete stack #{options[:name]} [y/N]?")
-        say('Deleting stack!')
-        stack = Hygroscope::Stack.new(options[:name])
-        stack.delete!
-        status
-      end
+      abort unless options[:force] ||
+                   yes?("Really delete stack #{options[:name]} [y/N]?")
+
+      say('Deleting stack!')
+      stack = Hygroscope::Stack.new(options[:name])
+      stack.delete!
+      status
     end
 
     desc 'status', 'View status of stack create/update/delete action.\nUse the --name option to change which stack is reported upon.'
@@ -284,7 +300,7 @@ module Hygroscope
 
         # Fancy acrobatics to fit output to terminal width. If the terminal
         # window is too small, fallback to something appropriate for ~80 chars
-        term_width = %x(stty size 2>/dev/null).split[1].to_i || %x(tput cols 2>/dev/null).to_i
+        term_width = `stty size 2>/dev/null`.split[1].to_i || `tput cols 2>/dev/null`.to_i
         type_width   = term_width < 80 ? 30 : term_width - 50
         output_width = term_width < 80 ? 54 : term_width - 31
 
@@ -321,7 +337,9 @@ module Hygroscope
       end while true
     end
 
-    desc 'generate', "Generate and display JSON output from template files.\nTo validate that the template is well-formed use the 'validate' command."
+    desc 'generate',
+         "Generate and display JSON output from template files.\n" \
+         "To validate that the template is well-formed use the 'validate' command."
     method_option :color,
                   aliases: '-c',
                   type: :boolean,
@@ -341,21 +359,16 @@ module Hygroscope
     desc 'validate', "Generate JSON from template files and validate that it is well-formed.\nThis utilzies the CloudFormation API to validate the template but does not detect logical errors."
     def validate
       check_path
+
       begin
         t = Hygroscope::Template.new(template_path)
         t.validate
       rescue Aws::CloudFormation::Errors::ValidationError => e
-        say_status('error', 'Validation error', :red)
-        print_wrapped e.message, indent: 2
-        abort
+        say_fail("Validation error: #{e.message}")
       rescue Hygroscope::TemplateYamlParseError => e
-        say_status('error', 'YAML parsing error', :red)
-        puts e
-        abort
+        say_fail("YAML parsing error: #{e.message}")
       rescue => e
-        say_status('error', 'Unexpected error', :red)
-        print_wrapped e.message, indent: 2
-        abort
+        say_fail(e.message)
       else
         say_status('ok', 'Template is valid', :green)
       end
@@ -368,25 +381,9 @@ module Hygroscope
                   desc: 'Name of a paramset'
     def paramset
       if options[:name]
-        begin
-          p = Hygroscope::ParamSet.new(options[:name])
-        rescue Hygroscope::ParamSetNotFoundError
-          raise("Paramset #{options[:name]} does not exist!")
-        end
-        say "Parameters for '#{hygro_name}' paramset '#{p.name}':", :yellow
-        print_table p.parameters, indent: 2
-        say "\nTo edit existing parameters, use the 'create' command with the --ask flag."
+        say_paramset(options[:name])
       else
-        files = Dir.glob(File.join(hygro_path, 'paramsets', '*.{yml,yaml}'))
-        if files.empty?
-          say "No saved paramsets for '#{hygro_name}'.", :red
-        else
-          say "Saved paramsets for '#{hygro_name}':", :yellow
-          files.map do |f|
-            say '  ' + File.basename(f, File.extname(f))
-          end
-          say "\nTo list parameters in a set, use the --name option."
-        end
+        say_paramset_list
       end
     end
   end

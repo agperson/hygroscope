@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Hygroscope by agperson</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Hygroscope</h1>
+        <p>A tool for managing the launch of complex CloudFormation stacks</p>
+        <p class="view"><a href="https://github.com/agperson/hygroscope">View the Project on GitHub <small>agperson/hygroscope</small></a></p>
+        <ul>
+          <li><a href="https://github.com/agperson/hygroscope/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/agperson/hygroscope/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/agperson/hygroscope">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <hr>
+
+<blockquote>
+<p><strong>hy·gro·scope</strong><br>
+<em>ˈhīɡrəˌskōp/</em>, noun<br>
+an instrument that gives an indication of the humidity of the air.</p>
+</blockquote>
+
+<hr>
+
+<p>Hygroscope is a Thor-based command-line tool for managing the launch of complex CloudFormation stacks.</p>
+
+<p><a href="http://aws.amazon.com/cloudformation/">CloudFormation</a> is a great way to manage infrastructure resources using code, but it has some aspects that make it a pain:</p>
+
+<ol>
+<li>Templates must be written in JSON, which, in addition to being difficult for a human to read, does not support niceties such as inline comments and repeated blocks.</li>
+<li>Launching CloudFormation stacks requires knowledge of the various parameters that need to be provided, and it is difficult to repeatably launch a stack since parameters are not saved in any convenient way.</li>
+<li>There is no easy mechanism to send a payload of data to an instance during stack creation (for instance scripts and recipes to bootstrap an instance).</li>
+<li>Finally, it is difficult to launch stacks that build upon already-existing stacks (i.e. an application stack within an existing VPC stack) because one must manually provide a variety of identifiers (subnets, IP addresses, security groups).</li>
+</ol>
+
+<p>Hygroscope aims to solve each of these specific problems in an opinionated way:</p>
+
+<ol>
+<li>CF templates are written in YAML and processed using <a href="https://github.com/drrb/cfoo">cfoo</a>, which provides a variety of convenience methods that increase readability.</li>
+<li>Hygroscope can interactively prompt for each parameter and save inputted parameters to a file called a paramset. Additional stack launches can make use of existing paramsets, or can use paramsets as the basis and prompt for updated parameters.</li>
+<li>A payload directory, if present, will be packaged and uploaded to S3. Hygroscope will generate and pass to CF a signed time-limited URL for accessing and downloading the payload, or the CloudFormation template can manage an instance profile granting indefinite access to the payload.</li>
+<li>If an existing stack is specified, its outputs will be fetched and passed through as input parameters when launching a new stack.</li>
+</ol>
+
+<p>Hygroscope is currently under development but mostly functional. Run <code>hygroscope help</code> to view inline command documentation and options.  See <a href="https://github.com/agperson/hygroscope/wiki/Structure-of-a-Hygroscopic-Template">template structure</a> for information about the format of hygroscopic templates.</p>
+      </section>
+    </div>
+    <footer>
+      <p>Project maintained by <a href="https://github.com/agperson">agperson</a></p>
+      <p>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></p>
+    </footer>
+    <!--[if !IE]><script>fixScale(document);</script><![endif]-->
+    
+  </body>
+</html>

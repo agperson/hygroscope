@@ -1,3 +1,7 @@
+## 1.1.4 (2015-03-09)
+
+- Support adding custom tags to every created resource
+
 ## 1.1.3 (2015-02-09)
 
 - Longer default timeouts for payload and stack creation.

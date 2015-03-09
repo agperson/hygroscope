@@ -60,7 +60,7 @@ module Hygroscope
           say_fail("Paramset #{name} does not exist!")
         end
 
-        say "Parameters for '#{hygro_name}' paramset '#{p.name}':", :yellow
+        say "Parameters for '#{File.basename(Dir.pwd)}' paramset '#{p.name}':", :yellow
         print_table p.parameters, indent: 2
         say "\nTo edit existing parameters, use the 'create' command with the --ask flag."
       end
@@ -184,7 +184,7 @@ module Hygroscope
     desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified.\nUse --existing to set parameters from an existing stack's outputs."
     method_option :name,
                   aliases: '-n',
-                  default: hygro_name,
+                  default: File.basename(Dir.pwd),
                   desc: 'Name of stack'
     method_option :paramset,
                   aliases: '-p',
@@ -200,6 +200,11 @@ module Hygroscope
                   type: :boolean,
                   default: false,
                   desc: 'Still prompt for parameters even when using a paramset'
+    method_option :tags,
+                  aliases: '-t',
+                  type: :array,
+                  required: false,
+                  desc: 'One or more parameters to apply as tags to all stack resources'
     def create
       check_path
       validate
@@ -210,7 +215,16 @@ module Hygroscope
       s = Hygroscope::Stack.new(options[:name])
       s.parameters = paramset.parameters
       s.template = template.compress
+
       s.tags['X-Hygroscope-Template'] = hygro_name
+      options[:tags].each do |tag|
+        if paramset.get(tag)
+          s.tags[tag] = paramset.get(tag)
+        else
+          say_status('info', "Skipping tag #{tag} because it does not exist", :blue)
+        end
+      end
+
       s.capabilities = ['CAPABILITY_IAM']
 
       s.create!

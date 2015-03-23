@@ -1,6 +1,10 @@
+## 1.1.6 (2015-03-23)
+
+- Bugfix for tag functionality (failed if no tags are specified)
+
 ## 1.1.5 (2015-03-23)
 
-- Longer default timeout for stack creation (previously was only for stack update).
+- longer default timeout for stack creation (previously was only for stack update).
 
 ## 1.1.4 (2015-03-09)
 

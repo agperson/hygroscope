@@ -204,6 +204,7 @@ module Hygroscope
                   aliases: '-t',
                   type: :array,
                   required: false,
+                  default: [],
                   desc: 'One or more parameters to apply as tags to all stack resources'
     def create
       check_path

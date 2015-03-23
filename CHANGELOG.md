@@ -1,3 +1,7 @@
+## 1.1.5 (2015-03-23)
+
+- Longer default timeout for stack creation (previously was only for stack update).
+
 ## 1.1.4 (2015-03-09)
 
 - Support adding custom tags to every created resource

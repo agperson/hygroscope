@@ -226,6 +226,7 @@ module Hygroscope
       end
 
       s.capabilities = ['CAPABILITY_IAM']
+      s.timeout = 60
 
       s.create!
 

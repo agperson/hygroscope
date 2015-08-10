@@ -13,7 +13,8 @@ module Hygroscope
       # neither of which should be the case when using hygroscope -- but
       # we should check and error before getting to this point.
       @account_id = Aws::IAM::Client.new.get_user.user.arn.split(':')[4]
-      @bucket = "hygroscope-payloads-#{@account_id}"
+      @region = ENV['AWS_REGION'] || 'us-east-1'
+      @bucket = "hygroscope-payloads-#{@account_id}-#{@region}"
       @name = "payload-#{Time.new.to_i}.zip"
 
       @client = Aws::S3::Client.new

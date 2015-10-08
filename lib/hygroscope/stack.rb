@@ -6,7 +6,7 @@ module Hygroscope
     attr_writer :template, :capabilities, :on_failure, :timeout
     attr_reader :client
 
-    def initialize(name)
+    def initialize(name, region, profile)
       @name = name
       @parameters = {}
       @tags = {}
@@ -14,7 +14,11 @@ module Hygroscope
       @capabilities = []
       @timeout = 15
       @on_failure = 'DO_NOTHING'
-      @client = Aws::CloudFormation::Client.new
+
+      @region = region
+      @profile = profile
+      @credentials = Aws::SharedCredentials.new(profile_name: @profile)
+      @client = Aws::CloudFormation::Client.new(region: @region, credentials: @credentials)
     end
 
     def create!

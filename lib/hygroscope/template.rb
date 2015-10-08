@@ -8,8 +8,10 @@ module Hygroscope
   class Template
     attr_reader :path
 
-    def initialize(path)
+    def initialize(path, region, profile)
       @path = path
+      @region = region
+      @profile = profile
     end
 
     # Process a set of files with cfoo and return JSON
@@ -59,7 +61,7 @@ module Hygroscope
       template = compress
 
       begin
-        stack = Hygroscope::Stack.new('template-validator')
+        stack = Hygroscope::Stack.new('template-validator', @region, @profile)
         stack.client.validate_template(template_body: template)
       rescue => e
         raise e

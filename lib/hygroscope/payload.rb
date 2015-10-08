@@ -6,18 +6,21 @@ module Hygroscope
     attr_writer :prefix
     attr_reader :path, :bucket, :archive, :key
 
-    def initialize(path)
+    def initialize(path, region, profile)
       @path = path
+      @region = region
+      @profile = profile
+      @credentials = Aws::SharedCredentials.new(profile_name: @profile)
 
       # TODO: This will fail if using root creds or lacking GetUser priv,
       # neither of which should be the case when using hygroscope -- but
       # we should check and error before getting to this point.
-      @account_id = Aws::IAM::Client.new.get_user.user.arn.split(':')[4]
+      @account_id = Aws::IAM::Client.new(region: @region, credentials: @credentials).get_user.user.arn.split(':')[4]
       @region = ENV['AWS_REGION'] || 'us-east-1'
       @bucket = "hygroscope-payloads-#{@account_id}-#{@region}"
       @name = "payload-#{Time.new.to_i}.zip"
 
-      @client = Aws::S3::Client.new
+      @client = Aws::S3::Client.new(region: @region, credentials: @credentials)
     end
 
     def prefix

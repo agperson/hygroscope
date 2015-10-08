@@ -78,10 +78,23 @@ module Hygroscope
       end
     end
 
+    # NOTE: Profiles cannot assume roles, see:
+    # https://github.com/aws/aws-sdk-ruby/issues/910
+    class_option :profile,
+                  aliases: '-p',
+                  type: :string,
+                  default: 'default',
+                  desc: 'AWS account credentials profile name'
+    class_option :region,
+                  aliases: '-r',
+                  type: :string,
+                  default: 'us-east-1',
+                  desc: 'AWS region'
+
     desc 'prepare', 'Prepare to create or update a stack by generating the template, assembling parameters, and managing payload upload', hide: true
     def prepare
       # Generate the template
-      t = Hygroscope::Template.new(template_path)
+      t = Hygroscope::Template.new(template_path, options[:region], options[:profile])
 
       # If the paramset exists load it, otherwise instantiate an empty one
       p = Hygroscope::ParamSet.new(options[:paramset])
@@ -107,7 +120,7 @@ module Hygroscope
       options[:existing].each do |existing|
         # User specified an existing stack from which to pull outputs and
         # translate into parameters. Load the existing stack.
-        e = Hygroscope::Stack.new(existing)
+        e = Hygroscope::Stack.new(existing, options[:region], options[:profile])
         say_status('info', "Populating parameters from #{existing} stack", :blue)
 
         # Fill any template parameter that matches an output from the existing
@@ -168,7 +181,7 @@ module Hygroscope
       # Upload payload
       payload_path = File.join(Dir.pwd, 'payload')
       if File.directory?(payload_path)
-        payload = Hygroscope::Payload.new(payload_path)
+        payload = Hygroscope::Payload.new(payload_path, options[:region], options[:profile])
         payload.prefix = options[:name]
         payload.upload!
         p.set('HygroscopePayloadBucket', payload.bucket) if missing.include?('HygroscopePayloadBucket')
@@ -187,7 +200,7 @@ module Hygroscope
                   default: File.basename(Dir.pwd),
                   desc: 'Name of stack'
     method_option :paramset,
-                  aliases: '-p',
+                  aliases: '-s',
                   required: false,
                   desc: 'Name of saved paramset to use (optional)'
     method_option :existing,
@@ -213,23 +226,23 @@ module Hygroscope
       # Prepare task takes care of shared logic between "create" and "update"
       template, paramset = prepare
 
-      s = Hygroscope::Stack.new(options[:name])
-      s.parameters = paramset.parameters
-      s.template = template.compress
+      stack = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
+      stack.parameters = paramset.parameters
+      stack.template = template.compress
 
-      s.tags['X-Hygroscope-Template'] = hygro_name
+      stack.tags['X-Hygroscope-Template'] = hygro_name
       options[:tags].each do |tag|
         if paramset.get(tag)
-          s.tags[tag] = paramset.get(tag)
+          stack.tags[tag] = paramset.get(tag)
         else
           say_status('info', "Skipping tag #{tag} because it does not exist", :blue)
         end
       end
 
-      s.capabilities = ['CAPABILITY_IAM']
-      s.timeout = 60
+      stack.capabilities = ['CAPABILITY_IAM']
+      stack.timeout = 60
 
-      s.create!
+      stack.create!
 
       status
     end
@@ -240,7 +253,7 @@ module Hygroscope
                   default: File.basename(Dir.pwd),
                   desc: 'Name of stack'
     method_option :paramset,
-                  aliases: '-p',
+                  aliases: '-s',
                   required: false,
                   desc: 'Name of saved paramset to use (optional)'
     method_option :ask,
@@ -258,7 +271,7 @@ module Hygroscope
       # Prepare task takes care of shared logic between "create" and "update"
       template, paramset = prepare
 
-      s = Hygroscope::Stack.new(options[:name])
+      s = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
       s.parameters = paramset.parameters
       s.template = template.compress
       s.capabilities = ['CAPABILITY_IAM']
@@ -284,7 +297,7 @@ module Hygroscope
                    yes?("Really delete stack #{options[:name]} [y/N]?")
 
       say('Deleting stack!')
-      stack = Hygroscope::Stack.new(options[:name])
+      stack = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
       stack.delete!
       status
     end
@@ -296,7 +309,7 @@ module Hygroscope
                   desc: 'Name of stack'
     def status
       check_path
-      stack = Hygroscope::Stack.new(options[:name])
+      stack = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
 
       # Query and display the status of the stack and its resources. Refresh
       # every 10 seconds until the user aborts or an error is encountered.
@@ -363,7 +376,7 @@ module Hygroscope
                   desc: 'Colorize JSON output'
     def generate
       check_path
-      t = Hygroscope::Template.new(template_path)
+      t = Hygroscope::Template.new(template_path, options[:region], options[:profile])
       if options[:color]
         require 'json_color'
         puts JsonColor.colorize(t.process)
@@ -377,7 +390,7 @@ module Hygroscope
       check_path
 
       begin
-        t = Hygroscope::Template.new(template_path)
+        t = Hygroscope::Template.new(template_path, options[:region], options[:profile])
         t.validate
       rescue Aws::CloudFormation::Errors::ValidationError => e
         say_fail("Validation error: #{e.message}")

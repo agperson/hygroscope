@@ -1,6 +1,10 @@
+## 1.2.0 (2015-10-08)
+- Support AWS credential profiles and multiple regions using new --region and
+  --profile options.
+
 ## 1.1.6 (2015-03-23)
 
-- Bugfix for tag functionality (failed if no tags are specified)
+- Bugfix for tag functionality (failed if no tags are specified).
 
 ## 1.1.5 (2015-03-23)
 

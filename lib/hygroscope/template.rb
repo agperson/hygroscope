@@ -28,7 +28,7 @@ module Hygroscope
         cfoo.process(*files)
       end
 
-      fail(TemplateYamlParseError, err.string) unless err.string.empty?
+      raise(TemplateYamlParseError, err.string) unless err.string.empty?
 
       @template = out.string
       @template

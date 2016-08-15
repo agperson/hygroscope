@@ -1,3 +1,10 @@
+## 1.3.0 (2016-08-12)
+- Support passing capabilities using new --capabilities option. No longer set
+    CAPABILITY_IAM by default.
+- When performing updates use existing parameters by default
+- Do not compress template by default (readability vs slight space savings)
+- Rubocop code cleanup
+
 ## 1.2.0 (2015-10-08)
 - Support AWS credential profiles and multiple regions using new --region and
   --profile options.

@@ -81,18 +81,18 @@ module Hygroscope
     # NOTE: Profiles cannot assume roles, see:
     # https://github.com/aws/aws-sdk-ruby/issues/910
     class_option :profile,
-                  aliases: '-p',
-                  type: :string,
-                  default: 'default',
-                  desc: 'AWS account credentials profile name'
+      aliases: '-p',
+      type:    :string,
+      default: 'default',
+      desc:    'AWS account credentials profile name'
     class_option :region,
-                  aliases: '-r',
-                  type: :string,
-                  default: 'us-east-1',
-                  desc: 'AWS region'
+      aliases: '-r',
+      type:    :string,
+      default: 'us-east-1',
+      desc:    'AWS region'
 
     desc 'prepare', 'Prepare to create or update a stack by generating the template, assembling parameters, and managing payload upload', hide: true
-    def prepare
+    def prepare(action = 'create')
       # Generate the template
       t = Hygroscope::Template.new(template_path, options[:region], options[:profile])
 
@@ -132,49 +132,57 @@ module Hygroscope
         end
       end if options[:existing].is_a?(Array)
 
-      # Prompt for each missing parameter and save it in the paramset object
-      missing.each do |key|
-        # Do not prompt for keys prefixed with the "Hygroscope" reserved word.
-        # These parameters are populated internally without user input.
-        next if key =~ /^Hygroscope/
+      # If this is an update and ask was not specified, set any missing
+      # parameters to use_previous_value
+      if action == 'update' && !options[:ask]
+        missing.each do |key|
+          p.set(key, nil, use_previous_value: true)
+        end
+      else
+        # Prompt for each missing parameter and save it in the paramset object
+        missing.each do |key|
+          # Do not prompt for keys prefixed with the "Hygroscope" reserved word.
+          # These parameters are populated internally without user input.
+          next if key =~ /^Hygroscope/
 
-        type = t.parameters[key]['Type']
-        default = p.get(key) ? p.get(key) : t.parameters[key]['Default'] || ''
-        description = t.parameters[key]['Description'] || false
-        values = t.parameters[key]['AllowedValues'] || false
-        no_echo = t.parameters[key]['NoEcho'] || false
+          type = t.parameters[key]['Type']
+          default = p.get(key) ? p.get(key) : t.parameters[key]['Default'] || ''
+          description = t.parameters[key]['Description'] || false
+          values = t.parameters[key]['AllowedValues'] || false
+          no_echo = t.parameters[key]['NoEcho'] || false
 
-        # Thor conveniently provides some nice logic for formatting,
-        # allowing defaults, and validating user input
-        ask_opts = {}
-        ask_opts[:default] = default unless default.to_s.empty?
-        ask_opts[:limited_to] = values if values
-        ask_opts[:echo] = false if no_echo
+          # Thor conveniently provides some nice logic for formatting,
+          # allowing defaults, and validating user input
+          ask_opts = {}
+          ask_opts[:default] = default unless default.to_s.empty?
+          ask_opts[:limited_to] = values if values
+          ask_opts[:echo] = false if no_echo
 
-        puts
-        say("#{description} (#{type})") if description
-        # Make sure user enters a value
-        # TODO: Better input validation
-        answer = ''
-        answer = ask(key, :cyan, ask_opts) until answer != ''
+          puts
+          say("#{description} (#{type})") if description
+          # Make sure user enters a value
+          # TODO: Better input validation
+          answer = ''
+          answer = ask(key, :cyan, ask_opts) until answer != ''
 
-        # Save answer to paramset object
-        p.set(key, answer)
+          # Save answer to paramset object
+          p.set(key, answer)
 
-        # Add a line break
-        say if no_echo
-      end
+          # Add a line break
+          say if no_echo
+        end
 
-      # Offer to save paramset if it was modified
-      # Filter out keys beginning with "Hygroscope" since they are not visible
-      # to the user and may be modified on each invocation.
-      unless missing.reject { |k| k =~ /^Hygroscope/ }.empty?
-        puts
-        if yes?('Save changes to paramset?')
-          unless options[:paramset]
-            p.name = ask('Paramset name', :cyan, default: options[:name])
+        # Offer to save paramset if it was modified
+        # Filter out keys beginning with "Hygroscope" since they are not visible
+        # to the user and may be modified on each invocation.
+        unless missing.reject { |k| k =~ /^Hygroscope/ }.empty?
+          puts
+          if yes?('Save changes to paramset?')
+            unless options[:paramset]
+              p.name = ask('Paramset name', :cyan, default: options[:name])
+            end
+            p.save!
           end
-          p.save!
         end
       end
 
@@ -196,39 +204,51 @@ module Hygroscope
 
     desc 'create', "Create a new stack.\nUse the --name option to launch more than one stack from the same template.\nCommand prompts for parameters unless --paramset is specified.\nUse --existing to set parameters from an existing stack's outputs."
     method_option :name,
-                  aliases: '-n',
-                  default: File.basename(Dir.pwd),
-                  desc: 'Name of stack'
+      aliases: '-n',
+      default: File.basename(Dir.pwd),
+      desc:    'Name of stack'
     method_option :paramset,
-                  aliases: '-s',
-                  required: false,
-                  desc: 'Name of saved paramset to use (optional)'
+      aliases:  '-s',
+      required: false,
+      desc:     'Name of saved paramset to use (optional)'
     method_option :existing,
-                  aliases: '-e',
-                  type: :array,
-                  required: false,
-                  desc: 'Name of one or more existing stacks from which to retrieve outputs as parameters (optional)'
+      aliases:  '-e',
+      type:     :array,
+      required: false,
+      desc:     'Name of one or more existing stacks from which to retrieve outputs as parameters (optional)'
     method_option :ask,
-                  aliases: '-a',
-                  type: :boolean,
-                  default: false,
-                  desc: 'Still prompt for parameters even when using a paramset'
+      aliases: '-a',
+      type:    :boolean,
+      default: false,
+      desc:    'Still prompt for parameters even when using a paramset'
     method_option :tags,
-                  aliases: '-t',
-                  type: :array,
-                  required: false,
-                  default: [],
-                  desc: 'One or more parameters to apply as tags to all stack resources'
+      aliases:  '-t',
+      type:     :array,
+      required: false,
+      default:  [],
+      desc:     'One or more parameters to apply as tags to all stack resources'
+    method_option :capabilities,
+      aliases:  '-c',
+      type:     :array,
+      required: false,
+      default:  [],
+      desc:     'One or more capabilities to pass to CloudFormation (i.e. CAPABILITY_IAM)'
+    method_option :compress,
+      type:    :boolean,
+      default: false,
+      desc:    'Whether to compress the CloudFormation template slightly at the expense of readability by removing extra spaces'
     def create
       check_path
       validate
 
       # Prepare task takes care of shared logic between "create" and "update"
-      template, paramset = prepare
+      template, paramset = prepare('create')
 
-      stack = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
-      stack.parameters = paramset.parameters
-      stack.template = template.compress
+      stack              = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
+      stack.parameters   = paramset.parameters
+      stack.template     = options[:compress] ? template.compress : template.process
+      stack.capabilities = options[:capabilities]
+      stack.timeout      = 60
 
       stack.tags['X-Hygroscope-Template'] = hygro_name
       options[:tags].each do |tag|
@@ -239,58 +259,67 @@ module Hygroscope
         end
       end
 
-      stack.capabilities = ['CAPABILITY_IAM']
-      stack.timeout = 60
-
       stack.create!
-
       status
     end
 
-    desc 'update', "Update a running stack.\nCommand prompts for parameters unless a --paramset is specified."
+    desc 'update', "Update an existing stack.\nUse the --name option to specify the stack name if it differs from the template name.\nBy default parameters are set to existing values, unless --paramset or --ask is specified."
     method_option :name,
-                  aliases: '-n',
-                  default: File.basename(Dir.pwd),
-                  desc: 'Name of stack'
+      aliases: '-n',
+      default: File.basename(Dir.pwd),
+      desc:    'Name of stack'
     method_option :paramset,
-                  aliases: '-s',
-                  required: false,
-                  desc: 'Name of saved paramset to use (optional)'
+      aliases:  '-s',
+      required: false,
+      desc:     'Name of saved paramset to use (optional)'
+    method_option :existing,
+      aliases:  '-e',
+      type:     :array,
+      required: false,
+      desc:     'Name of one or more existing stacks from which to retrieve outputs as parameters (optional)'
     method_option :ask,
-                  aliases: '-a',
-                  type: :boolean,
-                  default: false,
-                  desc: 'Still prompt for parameters even when using a paramset'
+      aliases: '-a',
+      type:    :boolean,
+      default: false,
+      desc:    'Still prompt for parameters even when using a paramset'
+    method_option :capabilities,
+      aliases:  '-c',
+      type:     :array,
+      required: false,
+      default:  [],
+      desc:     'One or more capabilities to pass to CloudFormation (i.e. CAPABILITY_NAMED_IAM)'
+    method_option :compress,
+      type:    :boolean,
+      default: false,
+      desc:    'Whether to compress the CloudFormation template slightly at the expense of readability by removing extra spaces'
     def update
-      # TODO: Right now update just does the same thing as create, not taking
-      # into account the complications of updating (which params to keep,
-      # whether to re-upload the payload, etc.)
+      # TODO: Make re-uploading the payload optional
       check_path
       validate
 
       # Prepare task takes care of shared logic between "create" and "update"
-      template, paramset = prepare
+      template, paramset = prepare('update')
 
-      s = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
-      s.parameters = paramset.parameters
-      s.template = template.compress
-      s.capabilities = ['CAPABILITY_IAM']
-      s.timeout = 60
-      s.update!
+      stack              = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
+      stack.parameters   = paramset.parameters
+      stack.template     = options[:compress] ? template.compress : template.process
+      stack.capabilities = options[:capabilities]
+      stack.timeout      = 60
 
+      stack.update!
       status
     end
 
     desc 'delete', 'Delete a running stack after asking for confirmation.'
     method_option :name,
-                  aliases: '-n',
-                  default: File.basename(Dir.pwd),
-                  desc: 'Name of stack'
+      aliases: '-n',
+      default: File.basename(Dir.pwd),
+      desc:    'Name of stack'
     method_option :force,
-                  aliases: '-f',
-                  type: :boolean,
-                  default: false,
-                  desc: 'Delete without asking for confirmation'
+      aliases: '-f',
+      type:    :boolean,
+      default: false,
+      desc:    'Delete without asking for confirmation'
     def delete
       check_path
       abort unless options[:force] ||
@@ -304,76 +333,78 @@ module Hygroscope
 
     desc 'status', 'View status of stack create/update/delete action.\nUse the --name option to change which stack is reported upon.'
     method_option :name,
-                  aliases: '-n',
-                  default: File.basename(Dir.pwd),
-                  desc: 'Name of stack'
+      aliases: '-n',
+      default: File.basename(Dir.pwd),
+      desc:    'Name of stack'
     def status
       check_path
       stack = Hygroscope::Stack.new(options[:name], options[:region], options[:profile])
 
       # Query and display the status of the stack and its resources. Refresh
       # every 10 seconds until the user aborts or an error is encountered.
-      begin
-        s = stack.describe
+      loop do
+        begin
+          s = stack.describe
 
-        system('clear') || system('cls')
+          system('clear') || system('cls')
 
-        header = {
-          'Name:'    => s.stack_name,
-          'Created:' => s.creation_time,
-          'Status:'  => colorize_status(s.stack_status)
-        }
+          header = {
+            'Name:'    => s.stack_name,
+            'Created:' => s.creation_time,
+            'Status:'  => colorize_status(s.stack_status)
+          }
 
-        print_table header
-        puts
-
-        # Fancy acrobatics to fit output to terminal width. If the terminal
-        # window is too small, fallback to something appropriate for ~80 chars
-        term_width = `stty size 2>/dev/null`.split[1].to_i || `tput cols 2>/dev/null`.to_i
-        type_width   = term_width < 80 ? 30 : term_width - 50
-        output_width = term_width < 80 ? 54 : term_width - 31
-
-        # Header row
-        puts set_color(sprintf(' %-28s %-*s %-18s ', 'Resource', type_width, 'Type', 'Status'), :white, :on_blue)
-        resources = stack.list_resources
-        resources.each do |r|
-          puts sprintf(' %-28s %-*s %-18s ', r[:name][0..26], type_width, r[:type][0..type_width], colorize_status(r[:status]))
-        end
-
-        if s.stack_status.downcase =~ /complete$/
-          # If the stack is complete display any available outputs and stop refreshing
+          print_table header
           puts
-          puts set_color(sprintf(' %-28s %-*s ', 'Output', output_width, 'Value'), :white, :on_yellow)
-          s.outputs.each do |o|
-            puts sprintf(' %-28s %-*s ', o.output_key, output_width, o.output_value)
+
+          # Fancy acrobatics to fit output to terminal width. If the terminal
+          # window is too small, fallback to something appropriate for ~80 chars
+          term_width = `stty size 2>/dev/null`.split[1].to_i || `tput cols 2>/dev/null`.to_i
+          type_width   = term_width < 80 ? 30 : term_width - 50
+          output_width = term_width < 80 ? 54 : term_width - 31
+
+          # Header row
+          puts set_color(format(' %-28s %-*s %-18s ', 'Resource', type_width, 'Type', 'Status'), :white, :on_blue)
+          resources = stack.list_resources
+          resources.each do |r|
+            puts format(' %-28s %-*s %-18s ', r[:name][0..26], type_width, r[:type][0..type_width], colorize_status(r[:status]))
           end
 
-          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
-          break
-        elsif s.stack_status.downcase =~ /failed$/
-          # If the stack failed to create, stop refreshing
-          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
-          break
-        else
-          puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
-          countdown('Updating in', 9)
-          puts
+          if s.stack_status.downcase =~ /complete$/
+            # If the stack is complete display any available outputs and stop refreshing
+            puts
+            puts set_color(format(' %-28s %-*s ', 'Output', output_width, 'Value'), :white, :on_yellow)
+            s.outputs.each do |o|
+              puts format(' %-28s %-*s ', o.output_key, output_width, o.output_value)
+            end
+
+            puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
+            break
+          elsif s.stack_status.downcase =~ /failed$/
+            # If the stack failed to create, stop refreshing
+            puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
+            break
+          else
+            puts "\nMore information: https://console.aws.amazon.com/cloudformation/home"
+            countdown('Updating in', 9)
+            puts
+          end
+        rescue Aws::CloudFormation::Errors::ValidationError
+          say_fail('Stack not found')
+        rescue Interrupt
+          abort
         end
-      rescue Aws::CloudFormation::Errors::ValidationError
-        say_fail('Stack not found')
-      rescue Interrupt
-        abort
-      end while true
+      end
     end
 
     desc 'generate',
-         "Generate and display JSON output from template files.\n" \
-         "To validate that the template is well-formed use the 'validate' command."
+      "Generate and display JSON output from template files.\n" \
+      "To validate that the template is well-formed use the 'validate' command."
     method_option :color,
-                  aliases: '-c',
-                  type: :boolean,
-                  default: true,
-                  desc: 'Colorize JSON output'
+      aliases: '-c',
+      type:    :boolean,
+      default: true,
+      desc:    'Colorize JSON output'
     def generate
       check_path
       t = Hygroscope::Template.new(template_path, options[:region], options[:profile])
@@ -405,9 +436,9 @@ module Hygroscope
 
     desc 'paramset', "List saved paramsets.\nIf --name is passed, shows all parameters in the named set."
     method_option :name,
-                  aliases: '-n',
-                  required: false,
-                  desc: 'Name of a paramset'
+      aliases:  '-n',
+      required: false,
+      desc:     'Name of a paramset'
     def paramset
       if options[:name]
         say_paramset(options[:name])

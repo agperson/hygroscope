@@ -25,7 +25,7 @@ module Hygroscope
       stack_parameters = []
       @parameters.each do |k, v|
         stack_parameters << {
-          parameter_key: k,
+          parameter_key:   k,
           parameter_value: v.to_s
         }
       end
@@ -33,17 +33,17 @@ module Hygroscope
       stack_tags = []
       @tags.each do |k, v|
         stack_tags << {
-          key: k,
+          key:   k,
           value: v.to_s
         }
       end
 
       stack_opts = {
-        stack_name: @name,
-        template_body: @template,
-        parameters: stack_parameters,
+        stack_name:         @name,
+        template_body:      @template,
+        parameters:         stack_parameters,
         timeout_in_minutes: @timeout,
-        on_failure: @on_failure
+        on_failure:         @on_failure
       }
 
       stack_opts['capabilities'] = @capabilities unless @capabilities.empty?
@@ -61,16 +61,23 @@ module Hygroscope
     def update!
       stack_parameters = []
       @parameters.each do |k, v|
-        stack_parameters << {
-          parameter_key: k,
-          parameter_value: v.to_s
-        }
+        stack_parameters << if v == 'HYGROSCOPE_USE_PREVIOUS_VALUE'
+                              {
+                                parameter_key:      k,
+                                use_previous_value: true
+                              }
+                            else
+                              {
+                                parameter_key:   k,
+                                parameter_value: v.to_s
+                              }
+                            end
       end
 
       stack_opts = {
-        stack_name: @name,
+        stack_name:    @name,
         template_body: @template,
-        parameters: stack_parameters
+        parameters:    stack_parameters
       }
 
       stack_opts['capabilities'] = @capabilities unless @capabilities.empty?
@@ -106,8 +113,8 @@ module Hygroscope
       resources = []
       resp.stack_resources.each do |r|
         resources << {
-          name: r.logical_resource_id,
-          type: r.resource_type,
+          name:   r.logical_resource_id,
+          type:   r.resource_type,
           status: r.resource_status
         }
       end

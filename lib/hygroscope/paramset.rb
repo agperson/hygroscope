@@ -12,20 +12,19 @@ module Hygroscope
       @parameters = {}
       @path = File.join(Dir.pwd, 'paramsets')
 
-      if name
-        @name = name
-        self.load!
-      end
+      return unless name
+
+      @name = name
+      load!
     end
 
     def load!
       files = Dir.glob(File.join(@path, @name + '.{yml,yaml}'))
-      if files.empty?
-        fail Hygroscope::ParamSetNotFoundError
-      else
-        @file = files.first
-        @parameters = YAML.load_file(@file)
-      end
+
+      raise Hygroscope::ParamSetNotFoundError if files.empty?
+
+      @file = files.first
+      @parameters = YAML.load_file(@file)
     end
 
     def save!
@@ -40,8 +39,12 @@ module Hygroscope
       @parameters[key]
     end
 
-    def set(key, value)
-      @parameters[key] = value
+    def set(key, value, use_previous_value: false)
+      @parameters[key] = if use_previous_value
+                           'HYGROSCOPE_USE_PREVIOUS_VALUE'
+                         else
+                           value
+                         end
     end
   end
 end

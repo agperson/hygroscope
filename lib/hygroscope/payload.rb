@@ -47,8 +47,8 @@ module Hygroscope
     def send
       @client.put_object(
         bucket: @bucket,
-        key: key,
-        body: @archive
+        key:    key,
+        body:   @archive
       )
     end
 

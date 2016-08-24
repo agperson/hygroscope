@@ -136,7 +136,7 @@ module Hygroscope
       # parameters to use_previous_value
       if action == 'update' && !options[:ask]
         missing.each do |key|
-          p.set(key, nil, use_previous_value: true)
+          p.set(key, nil, use_previous_value: true) unless p.get(key)
         end
       else
         # Prompt for each missing parameter and save it in the paramset object

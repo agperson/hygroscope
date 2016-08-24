@@ -1,3 +1,7 @@
+# 1.3.1 (2016-08-24)
+- When performing updates do not set use_existing flag on parameters that are
+    inherited from existing stacks.
+
 ## 1.3.0 (2016-08-12)
 - Support passing capabilities using new --capabilities option. No longer set
     CAPABILITY_IAM by default.

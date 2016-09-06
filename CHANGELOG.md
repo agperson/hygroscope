@@ -1,3 +1,6 @@
+# 1.3.2 (2016-09-06)
+- Do not error out when a templates does not require any parameters.
+
 # 1.3.1 (2016-08-24)
 - When performing updates do not set use_existing flag on parameters that are
     inherited from existing stacks.

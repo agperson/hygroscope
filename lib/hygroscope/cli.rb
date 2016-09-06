@@ -114,7 +114,11 @@ module Hygroscope
         missing = options[:ask] ? template_keys : template_keys - paramset_keys
       else
         # No paramset provided, so every parameter is missing!
-        missing = t.parameters.keys
+        missing = if t.parameters.empty?
+                    {}
+                  else
+                    t.parameters.keys
+                  end
       end
 
       options[:existing].each do |existing|
